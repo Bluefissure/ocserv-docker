@@ -9,8 +9,8 @@
 在 [安装好 Docker 1.0+](https://gist.github.com/wppurking/55db8651a88425e0f977) 并且正常启动 Docker 后:
 
 * `cd ~;git clone https://github.com/wppurking/ocserv-docker.git` : 将当前 repo 下载, 拥有可调整的 ocserv.conf 配置文件以及 ocpasswd 用户密码文件
-* `docker run -d --privileged -v ~/ocserv-docker/ocserv:/etc/ocserv -p 443:443/tcp wppurking/ocserv`  :  Box 自动下载. ocserv 的一些功能需要 Docker 在 privileged 权限下处理
-* `docker ps -aq | xargs docker logs` : 查看运行日志, 检查是否正常运行(可重复执行).
+* `docker run -d --privileged --name ocserv-docker -v ~/ocserv-docker/ocserv:/etc/ocserv -p 443:443/tcp wppurking/ocserv`  :  Box 自动下载. ocserv 的一些功能需要 Docker 在 privileged 权限下处理
+* `docker logs ocserv-docker` : 查看运行日志, 检查是否正常运行(可重复执行).
 
 ```
 listening (TCP) on 0.0.0.0:443...
@@ -18,6 +18,14 @@ listening (TCP) on [::]:443...
 listening (UDP) on 0.0.0.0:443...
 listening (UDP) on [::]:443...
 ```
+
+## 构建部署
+构建自己本地的 images, 计算自己的 ssl key (自签名). 可以避免 N 多人使用一个证书的问题.
+
+* `cd ~ && git clone https://github.com/wppurking/ocserv-docker.git` : 将当前 repo 下载, 拥有可调整的 ocserv.conf 配置文件以及 ocpasswd 用户密码文件
+* `cd ~/ocserv-docker && docker build --no-cache -t ocserv-docker .` : 在 ocserv-docker 目录下, 重新构建全新的镜像使用. (例: 版本更新, 重新生成证书)
+* `docker run -d --privileged --name ocserv-docker -v ~/ocserv-docker/ocserv:/etc/ocserv -p 443:443/tcp ocserv-docker`  :  ocserv 的一些功能需要 Docker 在 privileged 权限下处理
+* `docker logs ocserv-docker` : 查看运行日志, 检查是否正常运行(可重复执行).
 
 ## 使用
 * 初始化好的两个账户:  wyatt:616  holly:525
@@ -33,6 +41,7 @@ listening (UDP) on [::]:443...
 证书是在 Docker Build 的过程中自动生成的, 其生成的目的地为 `/opt/certs`
 [成功更换 certs 的例子](https://twitter.com/douglas_lee/status/590245251257737216)
 
+TODO: 自签名客户端证书登陆
 
 ## 用户名
 为了使新手能够最快的使用上 AnyConnect (也方便我自己同一设备能方便的链接多个不同地域的 VPS) 我预先设置了两个初始化的账号密码, 但同时将用于提供账号密码的 `ocserv/ocpasswd` 文件放在 Box 外面, 运行 Container 时使用 Volume 挂在进去, 这样方便熟悉 Docker 的用户能够方便的 使用 `ocpasswd` 命令修改或者重新生成自己的用户密码.
@@ -51,8 +60,8 @@ $> Re-enter password:
 
 
 ## 信息
-* Box Size: 384.6 MB   (拿空间换时间, 国外网络快)
-* 基础 Box: ubuntu:latest   (192.7 MB)
+* Box Size: 164 MB   (原来是 380+ MB, 基础镜像缩减)
+* 基础 Box: ubuntu:trusty
 * 测试过的环境: 
   * [Linode 1G Ubuntu 14.04 LTS]
   * [Vultr 768MB Ubuntu 14.04 LTS]
@@ -68,29 +77,13 @@ $> Re-enter password:
 
 
 ## 问题
-1. 在某台 Linux Kernal 为 `Linux xxxx 3.13.0-24-generic #46-Ubuntu SMP Thu Apr 10 19:11:08 UTC 2014 x86_64 x86_64 x86_64 GNU/Linux` 的服务器上, 无论 Docker run 哪一个 Box 都无法正常运行. Docker 的问题我现在还无能无力啊... [错误信息](https://gist.github.com/wppurking/0b81adefd050ace97332)
-2. 拥有官方的 libhttp-parser-dev 但仍然 local http-parser: no
-3. Radius, GSSAPI, LZ4 没有编译进去
 
+### 大家最近连接上 ocserv 就断开, 我猜测因为有比较多的人使用同一个 Docker Image 使得太多人使用同一个证书, 然后我做了处理, 
 
-## Dep on
-```
-  PAM auth backend:     yes
-  Radius auth backend:  no  
-  GSSAPI auth backend:  no
-  Anyconnect compat:    yes
-  TCP wrappers:         yes
-  systemd:              no
-  (socket activation)
-  seccomp:              yes
-  Compression:          yes
-  LZ4 compression:      no
-  readline:             yes
-  libnl3:               yes
-  glibc (sha2crypt):    yes
-  local talloc:         yes
-  local protobuf-c:     yes
-  local PCL library:    no
-  local libopts:        no
-  local http-parser:    no
-```
+至少我的几台服务器已经正常, 不会断开了. 请大家 `docker rmi wppurking/ocserv` 然后再执行运行的命令下载最新的 image, 如果有条件自己 build 以下或者使用自己的证书即可.
+
+### 关于限速, 我想应该是网络的干扰. 我部署的服务器 ( [1.5 MB/s](https://toolstud.io/data/bandwidth.php?compare=network&speed=1.5&speed_unit=MB%2Fs) 大概 12 Mbps) 如下:  
+![AnyConnect](http://77g8qz.com1.z0.glb.clouddn.com/anyconnect.png?imageView2/2/w/300)
+
+### 如果你网络好的话, 那么可以看到如下的情况 ( [7.1MB/s](https://toolstud.io/data/bandwidth.php?compare=network&speed=7.1&speed_unit=MB%2Fs) 的峰值, 56.8 Mbps) :
+![AnyConnect Speed](http://77g8qz.com1.z0.glb.clouddn.com/anyconnect-top.jpg?imageView2/0/h/400/q/100)
